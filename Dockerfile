@@ -9,7 +9,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -o mcp-server ./cmd/inspektor-gadget-mcp-server
 
+FROM alpine:3.22.0@sha256:8a1f59ffb675680d47db6337b49d22281a139e9d709335b492be023728e11715 AS certificates
+RUN apk add --no-cache ca-certificates
+
 # Final image
 FROM scratch
+
+COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /mcp-server/mcp-server /mcp-server/server
+
 ENTRYPOINT ["/mcp-server/server"]

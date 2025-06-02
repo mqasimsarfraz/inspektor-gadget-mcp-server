@@ -17,9 +17,12 @@ package discoverer
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 )
 
 var ErrUnknownSource = errors.New("unknown source")
+
+var log = slog.Default().With("component", "discoverer")
 
 // Discoverer is used to discover available gadgets from various sources.
 type Discoverer interface {

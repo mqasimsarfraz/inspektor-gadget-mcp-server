@@ -17,8 +17,9 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -34,9 +35,12 @@ import (
 
 var (
 	gadgetImages     = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
-	gadgetDiscoverer = flag.String("gadget-discoverer", "", "gadget discoverer to use (github, artifacthub)")
+	gadgetDiscoverer = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
 	runtime          = flag.String("runtime", "grpc-k8s", "runtime to use")
+	logLevel         = flag.String("log-level", "", "log level (debug, info, warn, error)")
 )
+
+var log = slog.Default().With("component", "inspektor-gadget-mcp-server")
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -45,12 +49,20 @@ func main() {
 	flag.Parse()
 
 	if *gadgetDiscoverer == "" && *gadgetImages == "" {
-		log.Fatal("either -gadget-images or -gadget-discoverer must be specified")
+		logFatal("either --gadget-images or --gadget-discoverer must be specified")
+	}
+
+	if *logLevel != "" {
+		l, err := parseLogLevel(*logLevel)
+		if err != nil {
+			logFatal("invalid log level", "error", err)
+		}
+		slog.SetLogLoggerLevel(l)
 	}
 
 	mgr, err := gadgetmanager.NewGadgetManager(*runtime)
 	if err != nil {
-		log.Fatalf("failed to initialize gadget manager: %v", err)
+		logFatal("failed to create gadget manager", "error", err)
 	}
 	defer mgr.Close()
 	registry := tools.NewToolRegistry(mgr)
@@ -61,15 +73,15 @@ func main() {
 	} else {
 		dis, err := discoverer.New(*gadgetDiscoverer)
 		if err != nil {
-			log.Fatalf("failed to initialize gadget discoverer: %v", err)
+			logFatal("failed to create gadget discoverer", "error", err)
 		}
 		images, err = dis.ListImages()
 		if err != nil {
-			log.Fatalf("failed to list gadget images: %v", err)
+			logFatal("failed to list gadget images", "error", err)
 		}
 	}
 	if err = registry.Prepare(ctx, images); err != nil {
-		log.Fatalf("failed to initialize tool registry: %v", err)
+		logFatal("failed to prepare tool registry", "error", err)
 	}
 
 	igS := igserver.New("v0.0.1", registry)
@@ -82,10 +94,29 @@ func main() {
 	}()
 	select {
 	case <-ctx.Done():
-		log.Printf("context done, shutting down")
+		log.Info("shutting down server gracefully")
 	case err := <-errC:
 		if err != nil {
-			log.Fatalf("error during server shutdown: %v", err)
+			logFatal("server error", "error", err)
 		}
 	}
+}
+
+func logFatal(msg string, args ...any) {
+	log.Error(msg, args...)
+	os.Exit(1)
+}
+
+func parseLogLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(level) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	}
+	return 0, fmt.Errorf("invalid log level: %s", level)
 }

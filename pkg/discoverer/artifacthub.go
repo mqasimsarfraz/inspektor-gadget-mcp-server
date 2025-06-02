@@ -58,6 +58,7 @@ func (d *artifactHubDiscoverer) ListImages() ([]string, error) {
 	var images []string
 	for _, pkg := range packages.Packages {
 		if !pkg.Official || !pkg.CNCF || pkg.Deprecated {
+			log.Debug("Skipping gadget", "normalized_name", pkg.NormalizedName, "official", pkg.Official, "cncf", pkg.CNCF, "deprecated", pkg.Deprecated)
 			continue
 		}
 		image, err := d.getPackageImage(pkg.NormalizedName)

@@ -34,6 +34,8 @@ import (
 
 const descriptionTemplate = `The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments. It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.`
 
+var log = slog.Default().With("component", "tools")
+
 // GadgetToolRegistry is a simple registry for server tools based on gadgets.
 type GadgetToolRegistry struct {
 	tools     []server.ServerTool
@@ -62,13 +64,10 @@ func (r *GadgetToolRegistry) All() []server.ServerTool {
 
 func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error {
 	for _, img := range images {
-		if strings.Contains(img, "bpfstats") {
-			r.logger.Warn("Skipping bpfstats image")
-			continue
-		}
 		info, err := r.gadgetMgr.GetInfo(ctx, img)
 		if err != nil {
-			return fmt.Errorf("getting gadget info for %s: %w", img, err)
+			log.Warn("Skipping gadget image due to error", "image", img, "error", err)
+			continue
 		}
 		t, err := r.toolFromGadgetInfo(info)
 		if err != nil {
@@ -79,6 +78,7 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 			Tool:    t,
 			Handler: h,
 		}
+		log.Debug("Adding tool", "image", img, "name", t.Name)
 		r.tools = append(r.tools, st)
 	}
 
@@ -132,15 +132,14 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 
 func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var timeout time.Duration
-		var params map[string]string
+		timeout := 10 * time.Second
+		params := defaultParamsFromGadgetInfo(info)
 		args := request.GetArguments()
 		if args != nil {
 			if t, ok := args["timeout"].(float64); ok {
 				timeout = time.Duration(t) * time.Second
 			}
 			if p, ok := args["params"].(map[string]interface{}); ok {
-				params = make(map[string]string, len(p))
 				for k, v := range p {
 					if strVal, ok := v.(string); ok {
 						params[k] = strVal
@@ -150,16 +149,24 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 				}
 			}
 		}
-		if timeout == 0 {
-			timeout = 10 * time.Second
-		}
 
+		log.Debug("Running gadget", "image", info.ImageName, "params", params, "timeout", timeout)
 		resp, err := r.gadgetMgr.Run(info.ImageName, params, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("starting gadget %s: %w", info.ImageName, err)
 		}
 		return mcp.NewToolResultText(resp), nil
 	}
+}
+
+func defaultParamsFromGadgetInfo(info *api.GadgetInfo) map[string]string {
+	params := make(map[string]string)
+	for _, p := range info.Params {
+		if p.DefaultValue != "" {
+			params[p.Prefix+p.Key] = p.DefaultValue
+		}
+	}
+	return params
 }
 
 func normalizeToolName(name string) string {
