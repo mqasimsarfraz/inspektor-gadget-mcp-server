@@ -2,6 +2,8 @@
 
 Inspektor Gadget MCP Server allows you to debug and inspect Kubernetes clusters using different gadgets.
 
+https://github.com/user-attachments/assets/86367982-c0aa-455c-ac9e-ca43348899df
+
 # Features
 
 - AI interface to troubleshoot and workload your workloads on Kubernetes clusters.
