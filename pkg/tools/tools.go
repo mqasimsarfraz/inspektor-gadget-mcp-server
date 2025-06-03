@@ -110,13 +110,12 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 		params[p.Prefix+p.Key] = map[string]interface{}{
 			"type":        "string",
 			"description": p.Description,
-			"default":     p.DefaultValue,
 		}
 	}
 
-	tool = mcp.NewTool(
-		normalizeToolName(metadata.Name),
+	opts := []mcp.ToolOption{
 		mcp.WithDescription(out.String()),
+		mcp.WithReadOnlyHintAnnotation(true),
 		mcp.WithObject("params",
 			mcp.Required(),
 			mcp.Description("key-value pairs of parameters to pass to the gadget"),
@@ -126,6 +125,10 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 			mcp.Description("Timeout in seconds for the gadget to run"),
 			mcp.DefaultNumber(10),
 		),
+	}
+	tool = mcp.NewTool(
+		normalizeToolName(metadata.Name),
+		opts...,
 	)
 	return tool, nil
 }
