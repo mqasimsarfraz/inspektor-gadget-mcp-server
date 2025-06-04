@@ -57,13 +57,10 @@ func (d *artifactHubDiscoverer) ListImages() ([]string, error) {
 
 	var images []string
 	for _, pkg := range packages.Packages {
-		if !pkg.Official || !pkg.CNCF || pkg.Deprecated {
-			log.Debug("Skipping gadget", "normalized_name", pkg.NormalizedName, "official", pkg.Official, "cncf", pkg.CNCF, "deprecated", pkg.Deprecated)
-			continue
-		}
 		image, err := d.getPackageImage(pkg.NormalizedName)
 		if err != nil {
-			return nil, fmt.Errorf("getting image for package %s: %w", pkg.NormalizedName, err)
+			log.Warn("failed to get image for package", "package", pkg.NormalizedName, "error", err)
+			continue
 		}
 		images = append(images, image)
 	}
