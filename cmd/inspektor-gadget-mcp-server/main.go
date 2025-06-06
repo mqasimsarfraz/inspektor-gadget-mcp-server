@@ -27,10 +27,10 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/discoverer"
-	"github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/gadgetmanager"
-	igserver "github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/server"
-	"github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/tools"
+	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/discoverer"
+	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/gadgetmanager"
+	igserver "github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/server"
+	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/tools"
 )
 
 var (

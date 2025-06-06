@@ -29,8 +29,8 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"gopkg.in/yaml.v3"
 
+	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/gadgetmanager"
 	metadatav1 "github.com/inspektor-gadget/inspektor-gadget/pkg/metadata/v1"
-	"github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/gadgetmanager"
 )
 
 const descriptionTemplate = `The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments. It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.`
@@ -91,7 +91,7 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 
 	for result := range resultsChan {
 		if result.err != nil {
-			log.Warn("Skipping gadget image due to error", "image", result.info.ImageName, "error", result.err)
+			log.Warn("Skipping gadget image due to error", "image", result.img, "error", result.err)
 			continue
 		}
 		info := result.info

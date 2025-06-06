@@ -17,7 +17,7 @@ package server
 import (
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/mqasimsarfraz/inspektor-gadget-mcp-server/pkg/tools"
+	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/tools"
 )
 
 func New(version string, registry *tools.GadgetToolRegistry) *server.MCPServer {
