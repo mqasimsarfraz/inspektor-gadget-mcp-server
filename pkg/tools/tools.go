@@ -17,6 +17,7 @@ package tools
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -33,7 +34,8 @@ import (
 	metadatav1 "github.com/inspektor-gadget/inspektor-gadget/pkg/metadata/v1"
 )
 
-const descriptionTemplate = `The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments. It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.`
+//go:embed templates
+var templates embed.FS
 
 var log = slog.Default().With("component", "tools")
 
@@ -41,7 +43,6 @@ var log = slog.Default().With("component", "tools")
 type GadgetToolRegistry struct {
 	tools     []server.ServerTool
 	gadgetMgr gadgetmanager.GadgetManager
-	logger    *slog.Logger
 }
 
 type ToolData struct {
@@ -55,7 +56,6 @@ func NewToolRegistry(manager gadgetmanager.GadgetManager) *GadgetToolRegistry {
 	return &GadgetToolRegistry{
 		tools:     make([]server.ServerTool, 0),
 		gadgetMgr: manager,
-		logger:    slog.Default(),
 	}
 }
 
@@ -118,7 +118,7 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 	if err != nil {
 		return tool, fmt.Errorf("unmarshalling gadget metadata: %w", err)
 	}
-	tmpl, err := template.New("description").Parse(descriptionTemplate)
+	tmpl, err := template.ParseFS(templates, "templates/toolDescription.tmpl")
 	if err != nil {
 		return tool, fmt.Errorf("parsing template: %w", err)
 	}
@@ -128,7 +128,7 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 		Description: metadata.Description,
 		Environment: "Kubernetes",
 	}
-	if err = tmpl.ExecuteTemplate(&out, "description", td); err != nil {
+	if err = tmpl.Execute(&out, td); err != nil {
 		return tool, fmt.Errorf("executing template for gadget %s: %w", info.ImageName, err)
 	}
 	var params = make(map[string]interface{})
