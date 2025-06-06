@@ -28,10 +28,6 @@ import (
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators/simple"
 	igruntime "github.com/inspektor-gadget/inspektor-gadget/pkg/runtime"
 	grpcruntime "github.com/inspektor-gadget/inspektor-gadget/pkg/runtime/grpc"
-
-	// Register all operators for local runtime
-	_ "github.com/inspektor-gadget/inspektor-gadget/pkg/operators/btfgen"
-	_ "github.com/inspektor-gadget/inspektor-gadget/pkg/operators/ebpf"
 )
 
 // GadgetManager is an interface for managing gadgets.

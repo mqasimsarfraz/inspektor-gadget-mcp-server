@@ -34,10 +34,12 @@ import (
 )
 
 var (
-	gadgetImages     = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
-	gadgetDiscoverer = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
-	runtime          = flag.String("runtime", "grpc-k8s", "runtime to use")
-	logLevel         = flag.String("log-level", "", "log level (debug, info, warn, error)")
+	gadgetImages                  = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
+	gadgetDiscoverer              = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
+	artifactHubDiscovererOfficial = flag.Bool("artifacthub-official", false, "use only official gadgets from Artifact Hub")
+
+	runtime  = flag.String("runtime", "grpc-k8s", "runtime to use")
+	logLevel = flag.String("log-level", "", "log level (debug, info, warn, error)")
 )
 
 var log = slog.Default().With("component", "inspektor-gadget-mcp-server")
@@ -71,7 +73,11 @@ func main() {
 	if gadgetImages != nil && *gadgetImages != "" {
 		images = strings.Split(*gadgetImages, ",")
 	} else {
-		dis, err := discoverer.New(*gadgetDiscoverer)
+		var opts []discoverer.Option
+		if *artifactHubDiscovererOfficial {
+			opts = append(opts, discoverer.WithArtifactHubOfficialOnly(true))
+		}
+		dis, err := discoverer.New(*gadgetDiscoverer, opts...)
 		if err != nil {
 			logFatal("failed to create gadget discoverer", "error", err)
 		}

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -63,22 +64,47 @@ func (r *GadgetToolRegistry) All() []server.ServerTool {
 }
 
 func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error {
+	var wg sync.WaitGroup
+	resultsChan := make(chan struct {
+		img  string
+		info *api.GadgetInfo
+		err  error
+	}, len(images))
+
 	for _, img := range images {
-		info, err := r.gadgetMgr.GetInfo(ctx, img)
-		if err != nil {
-			log.Warn("Skipping gadget image due to error", "image", img, "error", err)
+		wg.Add(1)
+		go func(image string) {
+			defer wg.Done()
+			info, err := r.gadgetMgr.GetInfo(ctx, image)
+			resultsChan <- struct {
+				img  string
+				info *api.GadgetInfo
+				err  error
+			}{img: img, info: info, err: err}
+		}(img)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	for result := range resultsChan {
+		if result.err != nil {
+			log.Warn("Skipping gadget image due to error", "image", result.info.ImageName, "error", result.err)
 			continue
 		}
+		info := result.info
 		t, err := r.toolFromGadgetInfo(info)
 		if err != nil {
-			return fmt.Errorf("creating tool from gadget info for %s: %w", img, err)
+			return fmt.Errorf("creating tool from gadget info for %s: %w", info.ImageName, err)
 		}
 		h := r.handlerFromGadgetInfo(info)
 		st := server.ServerTool{
 			Tool:    t,
 			Handler: h,
 		}
-		log.Debug("Adding tool", "image", img, "name", t.Name)
+		log.Debug("Adding tool", "image", info.ImageName, "name", t.Name)
 		r.tools = append(r.tools, st)
 	}
 

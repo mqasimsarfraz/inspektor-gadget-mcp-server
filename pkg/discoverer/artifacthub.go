@@ -43,10 +43,14 @@ type ArtifacthubPackageDetails struct {
 	} `json:"containers_images"`
 }
 
-type artifactHubDiscoverer struct{}
+type artifactHubDiscoverer struct {
+	officialOnly bool
+}
 
-func NewArtifactHubDiscoverer() Discoverer {
-	return &artifactHubDiscoverer{}
+func NewArtifactHubDiscoverer(cfg Config) Discoverer {
+	return &artifactHubDiscoverer{
+		officialOnly: cfg.Artifacthub.OfficialOnly,
+	}
 }
 
 func (d *artifactHubDiscoverer) ListImages() ([]string, error) {
@@ -57,6 +61,10 @@ func (d *artifactHubDiscoverer) ListImages() ([]string, error) {
 
 	var images []string
 	for _, pkg := range packages.Packages {
+		if d.officialOnly && !pkg.Official {
+			log.Debug("skipping non-official package", "package", pkg.NormalizedName)
+			continue
+		}
 		image, err := d.getPackageImage(pkg.NormalizedName)
 		if err != nil {
 			log.Warn("failed to get image for package", "package", pkg.NormalizedName, "error", err)

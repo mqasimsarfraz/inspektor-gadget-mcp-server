@@ -24,16 +24,35 @@ var ErrUnknownSource = errors.New("unknown source")
 
 var log = slog.Default().With("component", "discoverer")
 
+type Option func(*Config)
+
+type Config struct {
+	Artifacthub struct {
+		OfficialOnly bool
+	}
+}
+
 // Discoverer is used to discover available gadgets from various sources.
 type Discoverer interface {
 	// ListImages returns a list of available gadget images.
 	ListImages() ([]string, error)
 }
 
-func New(source string) (Discoverer, error) {
+func New(source string, opts ...Option) (Discoverer, error) {
+	cfg := Config{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	switch source {
 	case SourceArtifactHub:
-		return NewArtifactHubDiscoverer(), nil
+		return NewArtifactHubDiscoverer(cfg), nil
 	}
 	return nil, fmt.Errorf("%w: %s", ErrUnknownSource, source)
+}
+
+func WithArtifactHubOfficialOnly(officialOnly bool) Option {
+	return func(cfg *Config) {
+		cfg.Artifacthub.OfficialOnly = officialOnly
+	}
 }
