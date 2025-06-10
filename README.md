@@ -38,7 +38,7 @@ You can set the MCP server in your user settings. Open the command palette (Ctrl
                 "--rm",
                 "-v", "~/.kube/config:/kubeconfig:ro",
                 "-e", "KUBECONFIG=/kubeconfig",
-                "ghcr.io/mqasimsarfraz/inspektor-gadget-mcp-server:latest",
+                "ghcr.io/inspektor-gadget/ig-mcp-server:latest",
                 "-gadget-discoverer=artifacthub"
             ]
         }
@@ -64,7 +64,7 @@ You can also set the MCP server in your workspace settings by writing `.vscode/m
         "~/.kube/config:/kubeconfig:ro",
         "-e",
         "KUBECONFIG=/kubeconfig",
-        "ghcr.io/mqasimsarfraz/inspektor-gadget-mcp-server:latest",
+        "ghcr.io/inspektor-gadget/ig-mcp-server:latest",
         "-gadget-discoverer=artifacthub"
       ]
     }
