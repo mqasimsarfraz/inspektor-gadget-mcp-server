@@ -30,7 +30,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"gopkg.in/yaml.v3"
 
-	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/gadgetmanager"
+	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
 	metadatav1 "github.com/inspektor-gadget/inspektor-gadget/pkg/metadata/v1"
 )
 

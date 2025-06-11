@@ -27,10 +27,10 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/discoverer"
-	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/gadgetmanager"
-	igserver "github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/server"
-	"github.com/inspektor-gadget/inspektor-gadget-mcp-server/pkg/tools"
+	"github.com/inspektor-gadget/ig-mcp-server/pkg/discoverer"
+	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
+	igserver "github.com/inspektor-gadget/ig-mcp-server/pkg/server"
+	"github.com/inspektor-gadget/ig-mcp-server/pkg/tools"
 )
 
 var (
@@ -42,7 +42,7 @@ var (
 	logLevel = flag.String("log-level", "", "log level (debug, info, warn, error)")
 )
 
-var log = slog.Default().With("component", "inspektor-gadget-mcp-server")
+var log = slog.Default().With("component", "ig-mcp-server")
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

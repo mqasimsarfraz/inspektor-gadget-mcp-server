@@ -1,7 +1,7 @@
 GO ?= go
 
 CONTAINER_REPO_NAMESPACE ?= ghcr.io/inspektor-gadget
-CONTAINER_REPO_NAME ?= inspektor-gadget-mcp-server
+CONTAINER_REPO_NAME ?= ig-mcp-server
 IMAGE_TAG ?= latest
 
 .DEFAULT_GOAL := build
@@ -26,7 +26,7 @@ clean:
 build-local: clean-local
 	@echo "Building the project..."
 	mkdir -p bin
-	$(GO) build -o bin/inspektor-gadget-mcp-server ./cmd/inspektor-gadget-mcp-server
+	$(GO) build -o bin/ig-mcp-server ./cmd/ig-mcp-server
 	@echo "Build completed."
 
 .PHONY: clean-local

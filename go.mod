@@ -1,4 +1,4 @@
-module github.com/inspektor-gadget/inspektor-gadget-mcp-server
+module github.com/inspektor-gadget/ig-mcp-server
 
 go 1.24.1
 
