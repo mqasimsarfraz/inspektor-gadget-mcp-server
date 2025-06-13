@@ -212,7 +212,18 @@ We welcome contributions! Please:
 
 ### Development Setup
 
-TBD
+You can use [MCP inspector](https://github.com/modelcontextprotocol/inspector) for debugging and development:
+
+```console
+$ make debug
+Running in inspector for debugging...
+npx @modelcontextprotocol/inspector go run ./cmd/ig-mcp-server/ -gadget-images=trace_dns:latest,snapshot_process:latest,top_tcp:latest
+Starting MCP inspector...
+⚙️ Proxy server listening on port 6277
+🔍 MCP Inspector is up and running at http://127.0.0.1:6274 🚀
+```
+
+Once the inspector is running, you can head to the browser and test tools like `deploy_inspektor_gadget`, `undeploy_inspektor_gadget`, and various gadgets.
 
 ## Security Considerations
 

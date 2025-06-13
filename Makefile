@@ -3,6 +3,7 @@ GO ?= go
 CONTAINER_REPO_NAMESPACE ?= ghcr.io/inspektor-gadget
 CONTAINER_REPO_NAME ?= ig-mcp-server
 IMAGE_TAG ?= latest
+GADGET_IMAGES ?= trace_dns:latest,snapshot_process:latest,top_tcp:latest
 
 .DEFAULT_GOAL := build
 .PHONY: build
@@ -22,6 +23,11 @@ clean:
 	@echo "Cleaning up..."
 	docker rmi $(CONTAINER_REPO_NAMESPACE)/$(CONTAINER_REPO_NAME):$(IMAGE_TAG) || true
 	@echo "Clean completed."
+
+.PHONY: debug
+debug:
+	@echo "Running in inspector for debugging..."
+	npx @modelcontextprotocol/inspector go run ./cmd/ig-mcp-server/ -gadget-images=$(GADGET_IMAGES)
 
 build-local: clean-local
 	@echo "Building the project..."
