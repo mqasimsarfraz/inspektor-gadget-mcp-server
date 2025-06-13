@@ -27,8 +27,10 @@ func New(version string, registry *tools.GadgetToolRegistry) *server.MCPServer {
 		server.WithLogging(),
 	)
 
-	// Register tools
-	s.AddTools(registry.All()...)
+	// Register callback for tool registration
+	registry.RegisterCallback(func(tools ...server.ServerTool) {
+		s.SetTools(tools...)
+	})
 
 	return s
 }

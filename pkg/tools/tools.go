@@ -20,18 +20,22 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
 
+	"github.com/inspektor-gadget/inspektor-gadget/cmd/kubectl-gadget/utils"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/gadget-service/api"
+	metadatav1 "github.com/inspektor-gadget/inspektor-gadget/pkg/metadata/v1"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
-	metadatav1 "github.com/inspektor-gadget/inspektor-gadget/pkg/metadata/v1"
 )
 
 //go:embed templates
@@ -39,9 +43,13 @@ var templates embed.FS
 
 var log = slog.Default().With("component", "tools")
 
+type ToolRegistryCallback func(tool ...server.ServerTool)
+
 // GadgetToolRegistry is a simple registry for server tools based on gadgets.
 type GadgetToolRegistry struct {
-	tools     []server.ServerTool
+	tools     map[string]server.ServerTool
+	mu        sync.Mutex
+	callbacks []ToolRegistryCallback
 	gadgetMgr gadgetmanager.GadgetManager
 }
 
@@ -54,16 +62,54 @@ type ToolData struct {
 // NewToolRegistry creates a new GadgetToolRegistry instance.
 func NewToolRegistry(manager gadgetmanager.GadgetManager) *GadgetToolRegistry {
 	return &GadgetToolRegistry{
-		tools:     make([]server.ServerTool, 0),
+		tools:     make(map[string]server.ServerTool),
 		gadgetMgr: manager,
 	}
 }
 
-func (r *GadgetToolRegistry) All() []server.ServerTool {
-	return r.tools
+func (r *GadgetToolRegistry) all() []server.ServerTool {
+	tools := make([]server.ServerTool, 0, len(r.tools))
+	for _, tool := range r.tools {
+		tools = append(tools, tool)
+	}
+	return tools
+}
+
+func (r *GadgetToolRegistry) RegisterCallback(callback ToolRegistryCallback) {
+	r.callbacks = append(r.callbacks, callback)
 }
 
 func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	deployTool := newDeployTool(r, images)
+	undeployTool := newUndeployTool()
+	r.tools[deployTool.Tool.Name] = deployTool
+	r.tools[undeployTool.Tool.Name] = undeployTool
+
+	// Skip registering gadgets if Inspektor Gadget is not deployed
+	deployed, _, err := isInspektorGadgetDeployed(ctx)
+	if err != nil {
+		return fmt.Errorf("checking if Inspektor Gadget is deployed: %w", err)
+	}
+	if deployed {
+		err = r.registerGadgets(ctx, images)
+		if err != nil {
+			return fmt.Errorf("registering gadgets: %w", err)
+		}
+	} else {
+		log.Info("Inspektor Gadget is not deployed, skipping gadget registration")
+	}
+
+	for _, callback := range r.callbacks {
+		log.Debug("Invoking tool registry callback", "tools_count", len(r.tools))
+		callback(r.all()...)
+	}
+
+	return nil
+}
+
+func (r *GadgetToolRegistry) registerGadgets(ctx context.Context, images []string) error {
 	var wg sync.WaitGroup
 	resultsChan := make(chan struct {
 		img  string
@@ -105,7 +151,7 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 			Handler: h,
 		}
 		log.Debug("Adding tool", "image", info.ImageName, "name", t.Name)
-		r.tools = append(r.tools, st)
+		r.tools[normalizeToolName(info.ImageName)] = st
 	}
 
 	return nil
@@ -149,7 +195,6 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 		),
 		mcp.WithNumber("timeout",
 			mcp.Description("Timeout in seconds for the gadget to run"),
-			mcp.DefaultNumber(10),
 		),
 	}
 	tool = mcp.NewTool(
@@ -201,4 +246,40 @@ func defaultParamsFromGadgetInfo(info *api.GadgetInfo) map[string]string {
 func normalizeToolName(name string) string {
 	// Normalize tool name to lowercase and replace spaces with dashes
 	return strings.Replace(name, " ", "_", -1)
+}
+
+// A generic function to check if Inspektor Gadget is deployed in the cluster e.g using kubectl-gadget, helm, or other means.
+// It returns a boolean indicating if it is deployed, the namespace it is deployed in, and any error encountered
+func isInspektorGadgetDeployed(ctx context.Context) (bool, string, error) {
+	restConfig, err := utils.KubernetesConfigFlags.ToRESTConfig()
+	if err != nil {
+		return false, "", fmt.Errorf("creating RESTConfig: %w", err)
+	}
+
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return false, "", fmt.Errorf("setting up trace client: %w", err)
+	}
+
+	opts := metav1.ListOptions{LabelSelector: "k8s-app=gadget"}
+	pods, err := client.CoreV1().Pods("").List(ctx, opts)
+	if err != nil {
+		return false, "", fmt.Errorf("getting pods: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		log.Debug("No Inspektor Gadget pods found")
+		return false, "", nil
+	}
+
+	var namespaces []string
+	for _, pod := range pods.Items {
+		if !slices.Contains(namespaces, pod.Namespace) {
+			namespaces = append(namespaces, pod.Namespace)
+		}
+	}
+	if len(namespaces) > 1 {
+		log.Debug("Multiple namespaces found for Inspektor Gadget pods", "namespaces", namespaces)
+		return false, "", fmt.Errorf("multiple namespaces found for Inspektor Gadget pods: %v", namespaces)
+	}
+	return true, namespaces[0], nil
 }

@@ -86,12 +86,13 @@ func main() {
 			logFatal("failed to list gadget images", "error", err)
 		}
 	}
-	if err = registry.Prepare(ctx, images); err != nil {
-		logFatal("failed to prepare tool registry", "error", err)
-	}
 
 	igS := igserver.New("v0.0.1", registry)
 	stdioS := server.NewStdioServer(igS)
+
+	if err = registry.Prepare(ctx, images); err != nil {
+		logFatal("failed to prepare tool registry", "error", err)
+	}
 
 	errC := make(chan error, 1)
 	go func() {
