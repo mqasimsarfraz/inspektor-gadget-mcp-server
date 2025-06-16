@@ -17,10 +17,9 @@ package tools
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"time"
 
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/deployer"
 )
@@ -92,7 +91,7 @@ func deployHandler(registry *GadgetToolRegistry, images []string) server.ToolHan
 			// We need to wait to ensure Inspektor Gadget is fully deployed before registering the tools
 			// TODO: Can we do this more elegantly?
 			log.Debug("Waiting for Inspektor Gadget to be fully deployed before registering tools")
-			time.Sleep(30 * time.Second)
+			time.Sleep(10 * time.Second)
 
 			registry.mu.Lock()
 			defer registry.mu.Unlock()

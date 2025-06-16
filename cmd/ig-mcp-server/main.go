@@ -51,7 +51,7 @@ func main() {
 	flag.Parse()
 
 	if *gadgetDiscoverer == "" && *gadgetImages == "" {
-		logFatal("either --gadget-images or --gadget-discoverer must be specified")
+		logFatal("either -gadget-images or -gadget-discoverer must be specified")
 	}
 
 	if *logLevel != "" {

@@ -57,6 +57,13 @@ type ToolData struct {
 	Name        string
 	Description string
 	Environment string
+	Fields      []FieldData
+}
+
+type FieldData struct {
+	Name           string
+	Description    string
+	PossibleValues string
 }
 
 // NewToolRegistry creates a new GadgetToolRegistry instance.
@@ -110,6 +117,7 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 }
 
 func (r *GadgetToolRegistry) registerGadgets(ctx context.Context, images []string) error {
+	sem := make(chan struct{}, 8) // Limit concurrency to 8
 	var wg sync.WaitGroup
 	resultsChan := make(chan struct {
 		img  string
@@ -119,8 +127,12 @@ func (r *GadgetToolRegistry) registerGadgets(ctx context.Context, images []strin
 
 	for _, img := range images {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(image string) {
-			defer wg.Done()
+			defer func() {
+				wg.Done()
+				<-sem
+			}()
 			info, err := r.gadgetMgr.GetInfo(ctx, image)
 			resultsChan <- struct {
 				img  string
@@ -168,11 +180,22 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 	if err != nil {
 		return tool, fmt.Errorf("parsing template: %w", err)
 	}
+	var fields []FieldData
+	if len(info.DataSources) > 0 {
+		for _, field := range info.DataSources[0].Fields {
+			fields = append(fields, FieldData{
+				Name:           field.FullName,
+				Description:    field.Annotations[metadatav1.DescriptionAnnotation],
+				PossibleValues: field.Annotations[metadatav1.ValueOneOfAnnotation],
+			})
+		}
+	}
 	var out bytes.Buffer
 	td := ToolData{
 		Name:        normalizeToolName(metadata.Name),
 		Description: metadata.Description,
 		Environment: "Kubernetes",
+		Fields:      fields,
 	}
 	if err = tmpl.Execute(&out, td); err != nil {
 		return tool, fmt.Errorf("executing template for gadget %s: %w", info.ImageName, err)
@@ -213,6 +236,11 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 			if t, ok := args["timeout"].(float64); ok {
 				timeout = time.Duration(t) * time.Second
 			}
+			// set map-fetch-interval to half of the timeout to limit the volume of data fetched
+			if _, ok := params["operator.oci.ebpf.map-fetch-interval"]; ok {
+				params["operator.oci.ebpf.map-fetch-interval"] = (timeout / 2).String()
+			}
+			// If params is provided, merge it with the default parameters
 			if p, ok := args["params"].(map[string]interface{}); ok {
 				for k, v := range p {
 					if strVal, ok := v.(string); ok {

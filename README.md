@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/86367982-c0aa-455c-ac9e-ca43348899df
 ### Prerequisites
 
 - A `kubeconfig` file with access to your Kubernetes cluster.
-- [Inspektor Gadget installed](https://inspektor-gadget.io/docs/latest/reference/install-kubernetes) in the cluster (you can use the official installation instructions or utilize the MCP tools to deploy/undeploy Inspektor Gadget).
+- [Inspektor Gadget installed](https://inspektor-gadget.io/docs/latest/reference/install-kubernetes) in the cluster (you can use the official installation instructions or use the MCP tools to deploy/undeploy Inspektor Gadget).
 
 ### Using MCP Client
 
@@ -88,15 +88,19 @@ Alternatively, configure the MCP server for a specific workspace by creating `.v
 Once configured, you can interact with the MCP server through VS Code Copilot Chat:
 
 ```
-Deploy Inspektor Gadget to my cluster
-```
-
-```
 Run #trace_dns gadget on namespace default
 ```
 
 ```
 Show me network connections for pod nginx
+```
+
+```
+Show me top 5 pods by TCP data usage
+```
+
+```
+Deploy Inspektor Gadget to my cluster
 ```
 
 ### Available Gadgets
@@ -123,31 +127,26 @@ The MCP server supports several command-line options:
 
 ### Common Issues
 
-**Docker permission errors:**
-```bash
-# Add your user to the docker group
-sudo usermod -aG docker $USER
-# Log out and back in for changes to take effect
-```
-
 **Kubeconfig not found:**
 - Ensure your kubeconfig file exists at `~/.kube/config`
 - Check that the path is correctly mounted in the Docker command
 - Verify cluster connectivity: `kubectl cluster-info`
 - If your kubeconfig includes certificate paths, make sure to mount them using Docker volumes or run the binary directly on the host
 
+**Token Limit Reached:**
+- If your MCP client cannot summarize the gadget run, you may have reached the token limit. Try running the gadget with a shorter timeout or reduce the scope by specifying a namespace, pod, or limiting the number of results (e.g., top 5).
+- Try starting a new chat session in VS Code Copilot Chat to reset the context.
+
 **MCP server not responding:**
 - Check VS Code MCP extension is enabled
 - Verify Docker is running: `docker --version`
 - Review VS Code developer console for error messages
+- Try restarting VS Code or the MCP server
 
 **Gadgets not loading:**
 - Ensure internet connectivity for Artifact Hub discovery
 - Try manual gadget specification: `-gadget-images=trace_dns:latest`
-- Check Inspektor Gadget deployment: `kubectl get pods -n gadget-system`
-
-**Token Limit Reached:**
-- If your MCP client isn't able to summarize the gadget run, it is possible you are hitting the token limit. In that case, try to run the gadget with a smaller timeout and use filtering afterwards to focus on a specific workload.
+- Check Inspektor Gadget deployment: `kubectl get pods -n gadget`
 
 ### Debug Mode
 

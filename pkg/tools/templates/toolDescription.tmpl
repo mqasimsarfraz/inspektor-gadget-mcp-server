@@ -1,1 +1,16 @@
-The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments. It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.
+The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments using a gadget. It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.
+
+## Usage
+Always ask users question to apply limit the data volume. Here are some examples of questions you can ask:
+- Do you want to filter for specific namespace/pod/node?
+- Do you want to filter for specific fields?
+
+## Fields
+Fields can be filtered using the `operator.filter.filter` param. Format: FIELD (Description) [PossibleValues]:
+
+{{ range $field := .Fields -}}
+- {{ $field.Name }}{{ if $field.Description }}({{ $field.Description }}){{ end }}{{ if $field.PossibleValues }}[{{ $field.PossibleValues }}]{{ end }}
+{{ end }}
+## Output
+
+The tool produces a JSON object as output; review the data and provide a concise summary to the user.
