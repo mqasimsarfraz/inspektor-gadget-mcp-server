@@ -91,8 +91,10 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 	defer r.mu.Unlock()
 	deployTool := newDeployTool(r, images)
 	undeployTool := newUndeployTool()
+	isDeployed := newIsDeployedTool()
 	r.tools[deployTool.Tool.Name] = deployTool
 	r.tools[undeployTool.Tool.Name] = undeployTool
+	r.tools[isDeployed.Tool.Name] = isDeployed
 
 	// Skip registering gadgets if Inspektor Gadget is not deployed
 	deployed, _, err := isInspektorGadgetDeployed(ctx)
