@@ -266,9 +266,7 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 func defaultParamsFromGadgetInfo(info *api.GadgetInfo) map[string]string {
 	params := make(map[string]string)
 	for _, p := range info.Params {
-		if p.DefaultValue != "" {
-			params[p.Prefix+p.Key] = p.DefaultValue
-		}
+		params[p.Prefix+p.Key] = p.DefaultValue
 	}
 	return params
 }

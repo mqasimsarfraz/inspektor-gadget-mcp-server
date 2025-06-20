@@ -88,6 +88,11 @@ func (g *gadgetManager) Run(image string, params map[string]string, timeout time
 					igjson.WithShowAll(true),
 				)
 
+				// skip data sources that have the annotation "cli.default-output-mode" set to "none"
+				if m, ok := d.Annotations()["cli.default-output-mode"]; ok && m == "none" {
+					continue
+				}
+
 				d.Subscribe(func(source datasource.DataSource, data datasource.Data) error {
 					jsonData := jsonFormatter.Marshal(data)
 					jsonBuffer = append(jsonBuffer, jsonData...)
