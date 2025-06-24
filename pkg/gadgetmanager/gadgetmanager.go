@@ -16,12 +16,15 @@ package gadgetmanager
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/inspektor-gadget/inspektor-gadget/cmd/kubectl-gadget/utils"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/datasource"
 	igjson "github.com/inspektor-gadget/inspektor-gadget/pkg/datasource/formatters/json"
+	"github.com/inspektor-gadget/inspektor-gadget/pkg/environment"
 	gadgetcontext "github.com/inspektor-gadget/inspektor-gadget/pkg/gadget-context"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/gadget-service/api"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators"
@@ -34,6 +37,12 @@ import (
 type GadgetManager interface {
 	// Run starts a gadget with the given image and parameters, returning the output as a string.
 	Run(image string, params map[string]string, timeout time.Duration) (string, error)
+	// RunDetached starts a gadget with the given image and parameters in the background, returning its ID.
+	RunDetached(image string, params map[string]string) (string, error)
+	// Results returns the stored result buffer from a gadget
+	Results(id string) (string, error)
+	// Stop stops a gadget
+	Stop(id string) error
 	// GetInfo retrieves information about a gadget image via runtime.
 	GetInfo(ctx context.Context, image string) (*api.GadgetInfo, error)
 	// Close closes the gadget manager and releases any resources.
@@ -66,6 +75,7 @@ func NewGadgetManager(runtime string) (GadgetManager, error) {
 }
 
 func newGrpcK8sRuntime() (igruntime.Runtime, error) {
+	environment.Environment = environment.Kubernetes
 	rt := grpcruntime.New(grpcruntime.WithConnectUsingK8SProxy)
 	if err := rt.Init(nil); err != nil {
 		return nil, fmt.Errorf("initializing grpc gadget manager: %w", err)
@@ -110,6 +120,74 @@ func (g *gadgetManager) Run(image string, params map[string]string, timeout time
 
 	if err := g.runtime.RunGadget(gadgetCtx, nil, params); err != nil {
 		return "", fmt.Errorf("running gadget: %w", err)
+	}
+	return string(jsonBuffer), nil
+}
+
+func (g *gadgetManager) RunDetached(image string, params map[string]string) (string, error) {
+	gadgetCtx := gadgetcontext.New(
+		context.Background(),
+		image,
+	)
+
+	p := g.runtime.ParamDescs().ToParams()
+
+	newID := make([]byte, 16)
+	rand.Read(newID)
+	idString := hex.EncodeToString(newID)
+
+	p.Set(grpcruntime.ParamID, idString)
+	p.Set(grpcruntime.ParamDetach, "true")
+	if err := g.runtime.RunGadget(gadgetCtx, p, params); err != nil {
+		return "", fmt.Errorf("running gadget: %w", err)
+	}
+	return idString, nil
+}
+
+func (g *gadgetManager) Stop(id string) error {
+	if err := g.runtime.(*grpcruntime.Runtime).RemoveGadgetInstance(context.Background(), g.runtime.ParamDescs().ToParams(), id); err != nil {
+		return fmt.Errorf("stopping to gadget: %w", err)
+	}
+	return nil
+}
+
+func (g *gadgetManager) Results(id string) (string, error) {
+	const opPriority = 50000
+	var jsonBuffer []byte
+	myOperator := simple.New("myOperator",
+		simple.OnInit(func(gadgetCtx operators.GadgetContext) error {
+			for _, d := range gadgetCtx.GetDataSources() {
+				jsonFormatter, _ := igjson.New(d,
+					igjson.WithShowAll(true),
+				)
+
+				d.Subscribe(func(source datasource.DataSource, data datasource.Data) error {
+					jsonData := jsonFormatter.Marshal(data)
+					jsonBuffer = append(jsonBuffer, jsonData...)
+					jsonBuffer = append(jsonBuffer, '\n')
+					return nil
+				}, opPriority)
+			}
+			return nil
+		}),
+	)
+
+	to, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	gadgetCtx := gadgetcontext.New(
+		to,
+		id,
+		gadgetcontext.WithDataOperators(
+			myOperator,
+		),
+		gadgetcontext.WithID(id),
+		gadgetcontext.WithUseInstance(true),
+		gadgetcontext.WithTimeout(time.Second),
+	)
+
+	if err := g.runtime.RunGadget(gadgetCtx, g.runtime.ParamDescs().ToParams(), map[string]string{}); err != nil {
+		return "", fmt.Errorf("attaching to gadget: %w", err)
 	}
 	return string(jsonBuffer), nil
 }

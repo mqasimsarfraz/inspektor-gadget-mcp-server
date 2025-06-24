@@ -38,6 +38,8 @@ import (
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
 )
 
+const maxResultLen = 8 * 1024 // 8kb
+
 //go:embed templates
 var templates embed.FS
 
@@ -92,9 +94,15 @@ func (r *GadgetToolRegistry) Prepare(ctx context.Context, images []string) error
 	deployTool := newDeployTool(r, images)
 	undeployTool := newUndeployTool()
 	isDeployed := newIsDeployedTool()
+	waitTool := newWaitTool()
+	stopTool := r.newStopTool()
+	getResultsTool := r.newGetResultsTool()
 	r.tools[deployTool.Tool.Name] = deployTool
 	r.tools[undeployTool.Tool.Name] = undeployTool
 	r.tools[isDeployed.Tool.Name] = isDeployed
+	r.tools[waitTool.Tool.Name] = waitTool
+	r.tools[stopTool.Tool.Name] = stopTool
+	r.tools[getResultsTool.Tool.Name] = getResultsTool
 
 	// Skip registering gadgets if Inspektor Gadget is not deployed
 	deployed, _, err := isInspektorGadgetDeployed(ctx)
@@ -221,6 +229,9 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 		mcp.WithNumber("timeout",
 			mcp.Description("Timeout in seconds for the gadget to run"),
 		),
+		mcp.WithBoolean("background",
+			mcp.Description("Run in background"),
+		),
 	}
 	tool = mcp.NewTool(
 		normalizeToolName(metadata.Name),
@@ -234,12 +245,16 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 		timeout := 10 * time.Second
 		params := defaultParamsFromGadgetInfo(info)
 		args := request.GetArguments()
+		background := false
 		if args != nil {
+			if t, ok := args["background"]; ok {
+				background = t.(bool)
+			}
 			if t, ok := args["timeout"].(float64); ok {
 				timeout = time.Duration(t) * time.Second
 			}
 			// set map-fetch-interval to half of the timeout to limit the volume of data fetched
-			if _, ok := params["operator.oci.ebpf.map-fetch-interval"]; ok {
+			if _, ok := params["operator.oci.ebpf.map-fetch-interval"]; ok && !background {
 				params["operator.oci.ebpf.map-fetch-interval"] = (timeout / 2).String()
 			}
 			// If params is provided, merge it with the default parameters
@@ -254,12 +269,20 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 			}
 		}
 
+		if background {
+			id, err := r.gadgetMgr.RunDetached(info.ImageName, params)
+			if err != nil {
+				return nil, fmt.Errorf("running gadget: %w", err)
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("The gadget has been started with ID %s.", id)), nil
+		}
+
 		log.Debug("Running gadget", "image", info.ImageName, "params", params, "timeout", timeout)
 		resp, err := r.gadgetMgr.Run(info.ImageName, params, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("starting gadget %s: %w", info.ImageName, err)
 		}
-		return mcp.NewToolResultText(resp), nil
+		return mcp.NewToolResultText(truncateResults(resp)), nil
 	}
 }
 
@@ -312,4 +335,11 @@ func isInspektorGadgetDeployed(ctx context.Context) (bool, string, error) {
 		return false, "", fmt.Errorf("multiple namespaces found for Inspektor Gadget pods: %v", namespaces)
 	}
 	return true, namespaces[0], nil
+}
+
+func truncateResults(results string) string {
+	if len(results) > maxResultLen {
+		return fmt.Sprintf("\n<results>%s</results>\nThe results have been truncated. Specify filters to narrow down the results _if_ the truncated output is not helpful.\n", results[:maxResultLen]+"…")
+	}
+	return fmt.Sprintf("\n<results>%s</results>\n", results)
 }
