@@ -1,20 +1,18 @@
 The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments using a gadget.
 It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.
 
-The tool can either be run for a specified amount of time by setting the timeout parameter (returning the results afterwards)
-or started to be run in the background (set `background` to `true` in that case). When running in the background, the
-tool will return a unique identifier (ID) of the newly created gadget instance. This ID can be used when calling
-`get-results` and `stop-gadget` to control the corresponding gadget instance. Running a gadget in the background allows
-capturing events while running other tasks (like triggering events using other tools) or conversing with the user.
+## Run mode
+This tool can be run in two modes: foreground and background. In the foreground mode, it will execute for a specified duration
+based on the `timeout` parameter, returning the results directly to the user. In the background mode, it will run continuously
+until stopped (using `stop-gadget` tool), allowing for real-time data collection (using `get-results` tool) and interaction with other
+tools or user conversations. Unless explicitly specified, the tool will run in the foreground mode. Having said that, in certain cases
+where you want to perform tests you should run the tool in the background mode and then use the `get-results` tool to retrieve the results
+in the end.
 
-Make sure to always stop gadgets using `stop-gadget` after you are done with them as they will otherwise waste resources
-on the host. Also make sure to get the results before calling `stop-gadget`, as the results won't be available anymore
+## Important notes for background mode
+Make sure to always stop gadgets using `stop-gadget` tool after you are done with them as they will otherwise waste resources
+on the host. Also make sure to get the results (using `get-results` tool) before calling `stop-gadget`, as the results won't be available anymore
 after calling `stop-gadget`.
-
-## Usage
-Always ask users questions so that the results can be filtered to a minimum. Here are some examples of questions you can ask:
-- Do you want to filter for specific namespace/pod/node?
-- Do you want to filter for specific fields?
 
 ## Fields
 Fields can be filtered using the `operator.filter.filter` param. Format: FIELD (Description) [PossibleValues]:

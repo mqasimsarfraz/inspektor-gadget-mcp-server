@@ -38,7 +38,7 @@ import (
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
 )
 
-const maxResultLen = 8 * 1024 // 8kb
+const maxResultLen = 64 * 1024 // 64kb
 
 //go:embed templates
 var templates embed.FS
@@ -289,9 +289,7 @@ func (r *GadgetToolRegistry) handlerFromGadgetInfo(info *api.GadgetInfo) server.
 func defaultParamsFromGadgetInfo(info *api.GadgetInfo) map[string]string {
 	params := make(map[string]string)
 	for _, p := range info.Params {
-		if p.DefaultValue != "" {
-			params[p.Prefix+p.Key] = p.DefaultValue
-		}
+		params[p.Prefix+p.Key] = p.DefaultValue
 	}
 	return params
 }
@@ -339,7 +337,7 @@ func isInspektorGadgetDeployed(ctx context.Context) (bool, string, error) {
 
 func truncateResults(results string) string {
 	if len(results) > maxResultLen {
-		return fmt.Sprintf("\n<results>%s</results>\nThe results have been truncated. Specify filters to narrow down the results _if_ the truncated output is not helpful.\n", results[:maxResultLen]+"…")
+		return fmt.Sprintf("\n<results>%s</results>\n<isTruncated>true</isTruncated>\n", results[:maxResultLen]+"…")
 	}
 	return fmt.Sprintf("\n<results>%s</results>\n", results)
 }
