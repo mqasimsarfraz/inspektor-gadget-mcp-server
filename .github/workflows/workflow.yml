@@ -1,15 +1,19 @@
 name: Inspektor Gadget MCP Server CI
 env:
   REGISTRY: 'ghcr.io'
+  GO_VERSION: '1.24'
 on:
   push:
     branches:
       - main
+  pull_request:
+  workflow_dispatch:
 
 permissions: read-all
 
 jobs:
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,7 +25,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -62,4 +66,65 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ github.repository }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  build-binaries:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ linux, darwin, windows ]
+        arch: [ amd64, arm64 ]
+        exclude:
+          - os: windows
+            arch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Build and generate tarball
+        run: |
+          target=ig-mcp-server-${{ matrix.os }}-${{ matrix.arch }}
+
+          make $target
+          
+          binary_name=ig-mcp-server
+          
+          # Since the binary name is different on Windows, we handle it separately
+          if [ ${{ matrix.os }} = "windows" ]; then
+            mv $target.exe $binary_name.exe
+            tar --sort=name --owner=root:0 --group=root:0 \
+              -czf ${target}.tar.gz \
+              $binary_name.exe
+            exit 0
+          fi
+
+          # Prepare binary as artifact, it will be used by other jobs
+          mv $target $binary_name
+          tar --sort=name --owner=root:0 --group=root:0 \
+            -czf ${target}.tar.gz \
+            $binary_name
+      - name: Add ig-mcp-server-${{ matrix.os }}-${{ matrix.arch }}.tar.gz as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ig-mcp-server-${{ matrix.os }}-${{ matrix.arch }}-tar-gz
+          path: ig-mcp-server-${{ matrix.os }}-${{ matrix.arch }}.tar.gz      
 

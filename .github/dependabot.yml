@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      # Il est cinq heures, Paris s'éveille !
+      time: "05:00"
+      timezone: "Europe/Paris"
+    commit-message:
+      prefix: "ci:"
+  # Update root go dependencies
+  - package-ecosystem: "gomod"
+    directories:
+      - "**/*"
+    schedule:
+      interval: "daily"
+      time: "05:00"
+      timezone: "Europe/Paris"
+    commit-message:
+      prefix: "go:"
+    groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      k8s:
+        patterns:
+          - "k8s.io/*"
+      docker:
+        patterns:
+          - "github.com/docker/*"
+          - "github.com/moby/*"
+      otel:
+        patterns:
+          - "go.opentelemetry.io/*"
+      containers:
+        patterns:
+          - "github.com/containers/*"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "05:00"
+      timezone: "Europe/Paris"
+    commit-message:
+      prefix: "Dockerfile:"
