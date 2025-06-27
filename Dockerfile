@@ -8,15 +8,19 @@ FROM --platform=${BUILDPLATFORM} ${BUILDER_IMAGE} AS builder
 
 ARG TARGETARCH
 ARG TARGETARCH
+ARG VERSION=0.0.0
+ENV VERSION=${VERSION}
 
 # Copy the source code
-COPY . /mcp-server/
-WORKDIR /mcp-server
+COPY . /ig-mcp-server
+WORKDIR /ig-mcp-server
 
 # Build the ig-mcp-server binary
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o mcp-server ./cmd/ig-mcp-server
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+      -ldflags="-X main.version=${VERSION} -extldflags '-static'" \
+      github.com/inspektor-gadget/ig-mcp-server/cmd/ig-mcp-server
 
 FROM ${CERTIFICATES_IMAGE} AS certificates
 RUN apk add --no-cache ca-certificates
@@ -24,7 +28,13 @@ RUN apk add --no-cache ca-certificates
 # Final image
 FROM ${BASE_IMAGE}
 
-COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /mcp-server/mcp-server /mcp-server/server
+LABEL org.opencontainers.image.source=https://github.com/inspektor-gadget/ig-mcp-server
+LABEL org.opencontainers.image.title="Inspektor Gadget MCP Server"
+LABEL org.opencontainers.image.description="An AI interface for Inspektor Gadget to debug and monitor applications in Kubernetes clusters."
+LABEL org.opencontainers.image.documentation="https://inspektor-gadget.io"
+LABEL org.opencontainers.image.licenses=Apache-2.0
 
-ENTRYPOINT ["/mcp-server/server"]
+COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /ig-mcp-server/ig-mcp-server /ig-mcp-server
+
+ENTRYPOINT ["/ig-mcp-server"]
