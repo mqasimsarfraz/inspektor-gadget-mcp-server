@@ -210,7 +210,7 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 	if err = tmpl.Execute(&out, td); err != nil {
 		return tool, fmt.Errorf("executing template for gadget %s: %w", info.ImageName, err)
 	}
-	var params = make(map[string]interface{})
+	params := make(map[string]interface{})
 	for _, p := range info.Params {
 		params[p.Prefix+p.Key] = map[string]interface{}{
 			"type":        "string",
@@ -296,7 +296,7 @@ func defaultParamsFromGadgetInfo(info *api.GadgetInfo) map[string]string {
 
 func normalizeToolName(name string) string {
 	// Normalize tool name to lowercase and replace spaces with dashes
-	return strings.Replace(name, " ", "_", -1)
+	return strings.ReplaceAll(name, " ", "_")
 }
 
 // A generic function to check if Inspektor Gadget is deployed in the cluster e.g using kubectl-gadget, helm, or other means.

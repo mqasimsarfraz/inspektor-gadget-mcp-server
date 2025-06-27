@@ -1,0 +1,41 @@
+version: "2"
+run:
+  go: 1.24.4
+linters:
+  default: none
+  enable:
+    - errorlint
+    - staticcheck
+  settings:
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    staticcheck:
+      checks:
+        - all
+  exclusions:
+    generated: lax
+    rules:
+      # Ignore check: Packages must have a package comment
+      - linters:
+          - staticcheck
+        text: 'ST1000: at least one file in a package should have a package comment'
+      # Ignore rule about ID vs Id: https://github.com/golang/lint/issues/89
+      - linters:
+          - staticcheck
+        text: 'ST1003:'
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/inspektor-gadget/ig-mcp-server
+  exclusions:
+    generated: lax

@@ -1,12 +1,25 @@
 GOHOSTOS ?= $(shell go env GOHOSTOS)
 GOHOSTARCH ?= $(shell go env GOHOSTARCH)
 
+TAG := `git describe --tags --always`
+VERSION :=
+
+LINTER_VERSION ?= v2.1.6
+
+# Adds a '-dirty' suffix to version string if there are uncommitted changes
+changes := $(shell git status --porcelain)
+ifeq ($(changes),)
+	VERSION := $(TAG)
+else
+	VERSION := $(TAG)-dirty
+endif
+
+LDFLAGS := "-X main.version=$(VERSION) -extldflags '-static'"
+
 CONTAINER_REPO_NAMESPACE ?= ghcr.io/inspektor-gadget
 CONTAINER_REPO_NAME ?= ig-mcp-server
 IMAGE_TAG ?= latest
 GADGET_IMAGES ?= trace_dns:latest,snapshot_process:latest,top_tcp:latest
-
-LDFLAGS := "-extldflags '-static'"
 
 IG_MCP_SERVER_TARGET = \
 	ig-mcp-server-linux-amd64 \
@@ -51,10 +64,19 @@ clean-all: clean
 	rm -f $(IG_MCP_SERVER_TARGET)
 	@echo "Clean all completed."
 
+.PHONY: lint
+lint:
+	echo "Running linter..."
+	docker run --rm --env XDG_CACHE_HOME=/tmp/xdg_home_cache \
+		--env GOLANGCI_LINT_CACHE=/tmp/golangci_lint_cache \
+		--user $(shell id -u):$(shell id -g) -v $(shell pwd):/app -w /app \
+		golangci/golangci-lint:$(LINTER_VERSION) golangci-lint run --fix
+	@echo "Linting completed."
+
 .PHONY: container
 container:
 	@echo "Building container image..."
-	docker build -t $(CONTAINER_REPO_NAMESPACE)/$(CONTAINER_REPO_NAME):$(IMAGE_TAG) .
+	docker buildx build -t $(CONTAINER_REPO_NAMESPACE)/$(CONTAINER_REPO_NAME):$(IMAGE_TAG) --build-arg VERSION=$(VERSION) .
 	@echo "Successfully built container image: $(CONTAINER_REPO_NAMESPACE)/$(CONTAINER_REPO_NAME):$(IMAGE_TAG)"
 
 .PHONY: push-container

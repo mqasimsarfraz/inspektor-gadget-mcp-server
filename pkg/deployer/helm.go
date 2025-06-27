@@ -96,7 +96,7 @@ func (h *helmDeployer) Deploy(ctx context.Context, opts ...RunOption) error {
 	log.Debug("Deploying gadget", "chartUrl", chartUrl, "releaseName", releaseName, "namespace", namespace)
 
 	setting := cli.New()
-	chartPath, err := install.ChartPathOptions.LocateChart(chartUrl, setting)
+	chartPath, err := install.LocateChart(chartUrl, setting)
 	if err != nil {
 		return fmt.Errorf("locate chart: %w", err)
 	}

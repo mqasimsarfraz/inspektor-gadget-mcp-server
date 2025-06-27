@@ -33,6 +33,9 @@ import (
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/tools"
 )
 
+// This variable is used by the "version" command and is set during build
+var version = "undefined"
+
 var (
 	gadgetImages                  = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
 	gadgetDiscoverer              = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
@@ -40,6 +43,8 @@ var (
 
 	runtime  = flag.String("runtime", "grpc-k8s", "runtime to use")
 	logLevel = flag.String("log-level", "", "log level (debug, info, warn, error)")
+
+	versionFlag = flag.Bool("version", false, "print version and exit")
 )
 
 var log = slog.Default().With("component", "ig-mcp-server")
@@ -49,6 +54,11 @@ func main() {
 	defer stop()
 
 	flag.Parse()
+
+	if *versionFlag {
+		log.Info("Inspektor Gadget MCP Server", "version", version)
+		os.Exit(0)
+	}
 
 	if *gadgetDiscoverer == "" && *gadgetImages == "" {
 		logFatal("either -gadget-images or -gadget-discoverer must be specified")
@@ -87,7 +97,7 @@ func main() {
 		}
 	}
 
-	igS := igserver.New("v0.0.1", registry)
+	igS := igserver.New(version, registry)
 	stdioS := server.NewStdioServer(igS)
 
 	if err = registry.Prepare(ctx, images); err != nil {

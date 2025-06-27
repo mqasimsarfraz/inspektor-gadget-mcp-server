@@ -167,6 +167,12 @@ func (g *gadgetManager) Results(id string) (string, error) {
 					igjson.WithShowAll(true),
 				)
 
+				// skip data sources that have the annotation "cli.default-output-mode"
+				// set to "none"Add commentMore actions
+				if m, ok := d.Annotations()["cli.default-output-mode"]; ok && m == "none" {
+					continue
+				}
+
 				d.Subscribe(func(source datasource.DataSource, data datasource.Data) error {
 					jsonData := jsonFormatter.Marshal(data)
 					jsonBuffer = append(jsonBuffer, jsonData...)
