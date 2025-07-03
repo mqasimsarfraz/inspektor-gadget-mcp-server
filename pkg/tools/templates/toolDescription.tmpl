@@ -1,25 +1,21 @@
 The {{ .Name }} tool is designed to {{ .Description }} in {{ .Environment }} environments using a gadget.
 It uses a map of key-value pairs called params to configure its behavior but does not require any specific parameters to function.
 
-## Run mode
-This tool can be run in two modes: foreground and background. In the foreground mode, it will execute for a specified duration
-based on the `timeout` parameter, returning the results directly to the user. In the background mode, it will run continuously
-until stopped (using `stop-gadget` tool), allowing for real-time data collection (using `get-results` tool) and interaction with other
-tools or user conversations. Unless explicitly specified, the tool will run in the foreground mode. Having said that, in certain cases
-where you want to perform tests you should run the tool in the background mode and then use the `get-results` tool to retrieve the results
-in the end.
+<run-mode>
+This tool can be run in two modes: foreground (default) and background. When running in background mode, make sure to retrieve results using `get-results`
+before the gadget is stopped, as results are not stored permanently.
+</run-mode>
 
-## Important notes for background mode
-Make sure to always stop gadgets using `stop-gadget` tool after you are done with them as they will otherwise waste resources
-on the host. Also make sure to get the results (using `get-results` tool) before calling `stop-gadget`, as the results won't be available anymore
-after calling `stop-gadget`.
+<fields>
+Output can be filtered using the `operator.filter.filter` param.
 
-## Fields
-Fields can be filtered using the `operator.filter.filter` param. Format: FIELD (Description) [PossibleValues]:
-
+FIELD (Description) [PossibleValues]:
 {{ range $field := .Fields -}}
 - {{ $field.Name }}{{ if $field.Description }}({{ $field.Description }}){{ end }}{{ if $field.PossibleValues }}[{{ $field.PossibleValues }}]{{ end }}
-{{ end }}
-## Output
+{{ end -}}
+</fields>
 
+<output>
 The tool produces a JSON object as output when not running in the background; review the data and provide a concise summary to the user.
+After the gadget run if output is truncated, suggest user to use filtering or sorting/limiting to refine results.
+</output>

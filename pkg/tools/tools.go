@@ -230,7 +230,10 @@ func (r *GadgetToolRegistry) toolFromGadgetInfo(info *api.GadgetInfo) (mcp.Tool,
 			mcp.Description("Timeout in seconds for the gadget to run"),
 		),
 		mcp.WithBoolean("background",
-			mcp.Description("Run in background"),
+			mcp.Description("Run in background, allowing the gadget run continuously until stopped, allowing real-time data or "+
+				"interaction with other tools. Unless specified, the gadget should run in the foreground and return results after completion."+
+				"But if gadget needs to run for longer periods or collect some real-time data after performing an action set this to true.",
+			),
 		),
 	}
 	tool = mcp.NewTool(
