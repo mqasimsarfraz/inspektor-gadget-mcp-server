@@ -16,20 +16,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/inspektor-gadget/ig-mcp-server/pkg/server"
 
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/discoverer"
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/gadgetmanager"
-	igserver "github.com/inspektor-gadget/ig-mcp-server/pkg/server"
 	"github.com/inspektor-gadget/ig-mcp-server/pkg/tools"
 )
 
@@ -37,13 +37,17 @@ import (
 var version = "undefined"
 
 var (
+	// MCP server configuration
+	transport     = flag.String("transport", "stdio", fmt.Sprintf("transport to use (%s)", strings.Join(server.SupportedTransports, ", ")))
+	transportHost = flag.String("transport-host", "localhost", "host for the transport")
+	transportPort = flag.String("transport-port", "8080", "port for the transport")
+	// Inspektor Gadget configuration
+	runtime                       = flag.String("runtime", "grpc-k8s", "runtime to use")
 	gadgetImages                  = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
 	gadgetDiscoverer              = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
 	artifactHubDiscovererOfficial = flag.Bool("artifacthub-official", false, "use only official gadgets from Artifact Hub")
-
-	runtime  = flag.String("runtime", "grpc-k8s", "runtime to use")
-	logLevel = flag.String("log-level", "", "log level (debug, info, warn, error)")
-
+	// Server configuration
+	logLevel    = flag.String("log-level", "", "log level (debug, info, warn, error)")
 	versionFlag = flag.Bool("version", false, "print version and exit")
 )
 
@@ -97,25 +101,21 @@ func main() {
 		}
 	}
 
-	igS := igserver.New(version, registry)
-	stdioS := server.NewStdioServer(igS)
-
+	srv := server.New(version, registry)
 	if err = registry.Prepare(ctx, images); err != nil {
 		logFatal("failed to prepare tool registry", "error", err)
 	}
 
-	errC := make(chan error, 1)
 	go func() {
-		in, out := io.Reader(os.Stdin), io.Writer(os.Stdout)
-		errC <- stdioS.Listen(ctx, in, out)
-	}()
-	select {
-	case <-ctx.Done():
-		log.Info("shutting down server gracefully")
-	case err := <-errC:
-		if err != nil {
-			logFatal("server error", "error", err)
+		if err = srv.Start(*transport, *transportHost, *transportPort); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("failed to start server", "error", err)
 		}
+	}()
+
+	<-ctx.Done()
+	log.Info("Received shutdown signal, shutting down server")
+	if err = srv.Shutdown(ctx); err != nil {
+		logFatal("failed to shutdown server", "error", err)
 	}
 }
 
