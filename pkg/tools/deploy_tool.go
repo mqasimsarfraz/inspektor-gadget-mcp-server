@@ -96,15 +96,7 @@ func deployHandler(registry *GadgetToolRegistry, images []string) server.ToolHan
 
 			registry.mu.Lock()
 			defer registry.mu.Unlock()
-			err = registry.registerGadgets(ctx, images)
-			if err != nil {
-				log.Warn("failed to register tool", "error", err)
-				return
-			}
-			for _, callback := range registry.callbacks {
-				log.Debug("Invoking tool registry callback", "tools_count", len(registry.tools))
-				callback(registry.all()...)
-			}
+			registry.registerDefaultTools(ctx, images)
 		}()
 
 		return mcp.NewToolResultText("Inspektor Gadget deploy completed successfully"), nil

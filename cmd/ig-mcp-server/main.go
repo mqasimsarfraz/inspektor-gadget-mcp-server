@@ -42,7 +42,8 @@ var (
 	transportHost = flag.String("transport-host", "localhost", "host for the transport")
 	transportPort = flag.String("transport-port", "8080", "port for the transport")
 	// Inspektor Gadget configuration
-	runtime                       = flag.String("runtime", "grpc-k8s", "runtime to use")
+	environment                   = flag.String("environment", "kubernetes", "environment to use (kubernetes or linux)")
+	linuxRemoteAddress            = flag.String("linux-remote-address", "", "Comma-separated list of remote address (gRPC) to connect. If not set 'unix:///var/run/ig/ig.socket' is used.")
 	gadgetImages                  = flag.String("gadget-images", "", "comma-separated list of gadget images to use (e.g. 'trace_dns:latest,trace_open:latest')")
 	gadgetDiscoverer              = flag.String("gadget-discoverer", "", "gadget discoverer to use (artifacthub)")
 	artifactHubDiscovererOfficial = flag.Bool("artifacthub-official", false, "use only official gadgets from Artifact Hub")
@@ -76,12 +77,20 @@ func main() {
 		slog.SetLogLoggerLevel(l)
 	}
 
-	mgr, err := gadgetmanager.NewGadgetManager(*runtime)
+	if *environment != "kubernetes" && *environment != "linux" {
+		logFatal("invalid environment, must be 'kubernetes' or 'linux'")
+	}
+
+	if *linuxRemoteAddress != "" && *environment != "linux" {
+		logFatal("linux-remote-address can only be set when environment is 'linux'")
+	}
+
+	mgr, err := gadgetmanager.NewGadgetManager(*environment, *linuxRemoteAddress)
 	if err != nil {
 		logFatal("failed to create gadget manager", "error", err)
 	}
 	defer mgr.Close()
-	registry := tools.NewToolRegistry(mgr)
+	registry := tools.NewToolRegistry(mgr, *environment)
 
 	var images []string
 	if gadgetImages != nil && *gadgetImages != "" {
