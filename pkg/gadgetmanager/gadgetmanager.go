@@ -50,18 +50,21 @@ type GadgetManager interface {
 }
 
 type gadgetManager struct {
-	runtime igruntime.Runtime
+	runtime     igruntime.Runtime
+	environment string
 }
 
 // NewGadgetManager creates a new GadgetManager instance.
-func NewGadgetManager(runtime string) (GadgetManager, error) {
+func NewGadgetManager(env string, addr string) (GadgetManager, error) {
 	var rt igruntime.Runtime
 	var err error
-	switch runtime {
-	case "grpc-k8s":
+	switch env {
+	case "kubernetes":
 		rt, err = newGrpcK8sRuntime()
+	case "linux":
+		rt, err = newLocalRuntime(addr)
 	default:
-		return nil, fmt.Errorf("unsupported gadget manager runtime: %s", runtime)
+		return nil, fmt.Errorf("unsupported gadget manager environment: %s", env)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("creating gadget manager runtime: %w", err)
@@ -70,7 +73,8 @@ func NewGadgetManager(runtime string) (GadgetManager, error) {
 		return nil, fmt.Errorf("initializing gadget manager runtime: %w", err)
 	}
 	return &gadgetManager{
-		runtime: rt,
+		runtime:     rt,
+		environment: env,
 	}, nil
 }
 
@@ -85,6 +89,17 @@ func newGrpcK8sRuntime() (igruntime.Runtime, error) {
 		return nil, fmt.Errorf("creating RESTConfig: %w", err)
 	}
 	rt.SetRestConfig(config)
+	return rt, nil
+}
+
+func newLocalRuntime(addr string) (igruntime.Runtime, error) {
+	environment.Environment = environment.Local
+	rt := grpcruntime.New()
+	gp := rt.GlobalParamDescs().ToParams()
+	gp.Get(grpcruntime.ParamRemoteAddress).Set(addr)
+	if err := rt.Init(gp); err != nil {
+		return nil, fmt.Errorf("initializing grpc gadget manager: %w", err)
+	}
 	return rt, nil
 }
 
